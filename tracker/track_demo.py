@@ -12,6 +12,8 @@ import yaml
 from loguru import logger 
 import argparse
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from tracking_utils.envs import select_device
 from tracking_utils.tools import *
 from tracking_utils.visualization import plot_img, save_video
@@ -108,7 +110,7 @@ def get_args():
     parser.add_argument('--init_thresh', type=float, default=0.3, help='filter new detections, larger than this thresh consider as new tracklet')
     parser.add_argument('--nms_thresh', type=float, default=0.7, help='thresh for NMS')
 
-    parser.add_argument('--device', type=str, default='6', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', type=str, default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
 
     """yolox"""
     parser.add_argument('--num_classes', type=int, default=1)

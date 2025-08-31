@@ -169,7 +169,7 @@ class DemoDataset(TestDataset):
         self.model = model 
         self.img_size = img_size
 
-        self.is_video = '.mp4' in file_name or '.avi' in file_name 
+        self.is_video = '.mp4' in file_name.lower() or '.avi' in file_name.lower()
 
         if not self.is_video:
             self.imgs_in_seq = sorted(os.listdir(file_name))
