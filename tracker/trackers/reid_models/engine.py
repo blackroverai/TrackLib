@@ -21,8 +21,17 @@ from .ShuffleNetv2 import *
 from .MobileNetv2 import *
 from .VehicleNet import ft_net
 
-# tensor rt converter and inferencer
-from accelerations.tensorrt_tools import TensorRTConverter, TensorRTInference
+# tensor rt converter and inferencer - optional
+try:
+    from tracklib.tracker.accelerations.tensorrt_tools import TensorRTConverter, TensorRTInference
+    TENSORRT_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    # TensorRT is optional - not required for basic DeepSORT functionality
+    import warnings
+    warnings.filterwarnings("ignore", message="TensorRT not available")
+    TensorRTConverter = None
+    TensorRTInference = None
+    TENSORRT_AVAILABLE = False
 
 # All reid models
 REID_MODEL_DICT = {
