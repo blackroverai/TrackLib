@@ -15,6 +15,7 @@ track_results/*
 *.mkv
 temp.py
 demo_result/
+track_lib/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
