@@ -2,10 +2,11 @@
 implements base elements of trajectory
 """
 
-import numpy as np 
+import numpy as np
 from collections import deque
+import logging
 
-from .basetrack import BaseTrack, TrackState 
+from .basetrack import BaseTrack, TrackState
 from .kalman_filters.bytetrack_kalman import ByteKalman
 from .kalman_filters.botsort_kalman import BotKalman
 from .kalman_filters.ocsort_kalman import OCSORTKalman
@@ -13,6 +14,8 @@ from .kalman_filters.sort_kalman import SORTKalman
 from .kalman_filters.strongsort_kalman import NSAKalman
 from .kalman_filters.ucmctrack_kalman import UCMCKalman
 from .kalman_filters.hybridsort_kalman import HybridSORTKalman
+
+logger = logging.getLogger(__name__)
 
 MOTION_MODEL_DICT = {
     'sort': SORTKalman, 
@@ -35,7 +38,7 @@ STATE_CONVERT_DICT = {
 }
 
 class Tracklet(BaseTrack):
-    def __init__(self, tlwh, score, category, motion='byte'):
+    def __init__(self, tlwh, score, category, motion='byte', dt=1.0/30, det_idx=None):
 
         # initial position
         self._tlwh = np.asarray(tlwh, dtype=np.float32)
@@ -43,19 +46,32 @@ class Tracklet(BaseTrack):
 
         self.score = score
         self.category = category
+        self.det_idx = det_idx  # Original detection index for metadata lookup
 
         # kalman
         self.motion = motion
-        self.kalman_filter = MOTION_MODEL_DICT[motion]()
-        
+        # Pass dt to ByteKalman filter for proper time scaling
+        if motion == 'byte':
+            self.kalman_filter = MOTION_MODEL_DICT[motion](dt=dt)
+        else:
+            self.kalman_filter = MOTION_MODEL_DICT[motion]()
+
         self.convert_func = self.__getattribute__('tlwh_to_' + STATE_CONVERT_DICT[motion])
 
         # init kalman
         self.kalman_filter.initialize(self.convert_func(self._tlwh))
 
     def predict(self):
+        # Store position before prediction for logging
+        pre_predict_tlwh = self.tlwh.copy() if hasattr(self, '_tlwh') else None
+
         self.kalman_filter.predict(is_activated=self.state == TrackState.Tracked)
         self.time_since_update += 1
+
+        # Log prediction
+        if hasattr(self, 'track_id'):
+            predicted_tlwh = self.tlwh
+            logger.debug(f"Track {self.track_id} PREDICT: pre={pre_predict_tlwh[:2] if pre_predict_tlwh is not None else None} -> predicted={predicted_tlwh[:2]}")
 
     def activate(self, frame_id):
         self.track_id = self.next_id()
@@ -85,6 +101,12 @@ class Tracklet(BaseTrack):
 
         new_tlwh = new_track.tlwh
         self.score = new_track.score
+
+        # Log before update: predicted vs observed
+        predicted_tlwh = self.tlwh
+        observed_tlwh = new_tlwh
+        diff = observed_tlwh[:2] - predicted_tlwh[:2]
+        logger.debug(f"Track {self.track_id} UPDATE: predicted={predicted_tlwh[:2]}, observed={observed_tlwh[:2]}, diff={diff}, dist={np.linalg.norm(diff):.2f}px")
 
         self.kalman_filter.update(self.convert_func(new_tlwh))
 
@@ -127,10 +149,10 @@ class Tracklet_w_reid(Tracklet):
     """
     Tracklet class with reid features, for botsort, deepsort, etc.
     """
-    
-    def __init__(self, tlwh, score, category, motion='byte', 
-                 feat=None, feat_history=50):
-        super().__init__(tlwh, score, category, motion)
+
+    def __init__(self, tlwh, score, category, motion='byte',
+                 feat=None, feat_history=50, dt=1.0/30, det_idx=None):
+        super().__init__(tlwh, score, category, motion, dt=dt, det_idx=det_idx)
 
         self.smooth_feat = None  # EMA feature
         self.curr_feat = None  # current feature

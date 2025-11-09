@@ -18,6 +18,7 @@ class BaseTracker(object):
 
         self.frame_id = 0
         self.args = args
+        self.frame_rate = frame_rate  # Store frame rate for dt calculation
 
         self.init_thresh = args.init_thresh
         self.buffer_size = int(frame_rate / 30.0 * args.track_buffer)

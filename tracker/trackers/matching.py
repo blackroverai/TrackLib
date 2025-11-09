@@ -1,5 +1,5 @@
 """
-Measurement functions, Assignment and matching functions, 
+Measurement functions, Assignment and matching functions,
 Distance fusion functions
 """
 
@@ -10,9 +10,10 @@ import lap
 from scipy.spatial.distance import cdist
 import math
 # from cython_bbox import bbox_overlaps as bbox_ious
-import torch 
+import torch
 from torchvision.ops import box_iou
 import time
+import logging
 
 chi2inv95 = {
     1: 3.8415,
@@ -316,9 +317,20 @@ def linear_assignment(cost_matrix, thresh):
         unmatched_a: the unsuccessful match in col, np.ndarray, shape (num_of_unmatch, )
     """
 
+    logger = logging.getLogger(__name__)
 
     if cost_matrix.size == 0:
         return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
+
+    # Log cost matrix for debugging
+    logger.debug(f"=== LINEAR ASSIGNMENT ===")
+    logger.debug(f"Cost matrix shape: {cost_matrix.shape} (tracks x detections)")
+    logger.debug(f"Threshold: {thresh}")
+    logger.debug(f"Cost matrix:")
+    for i in range(cost_matrix.shape[0]):
+        row_str = " ".join([f"{cost_matrix[i,j]:6.3f}" for j in range(cost_matrix.shape[1])])
+        logger.debug(f"  Track {i:2d}: [{row_str}]")
+
     matches, unmatched_a, unmatched_b = [], [], []
     cost, x, y = lap.lapjv(cost_matrix, extend_cost=True, cost_limit=thresh)
     for ix, mx in enumerate(x):
@@ -327,6 +339,14 @@ def linear_assignment(cost_matrix, thresh):
     unmatched_a = np.where(x < 0)[0]
     unmatched_b = np.where(y < 0)[0]
     matches = np.asarray(matches)
+
+    # Log results
+    logger.debug(f"Assignment results:")
+    logger.debug(f"  Matches: {matches.tolist() if len(matches) > 0 else 'None'}")
+    logger.debug(f"  Unmatched tracks: {unmatched_a.tolist() if len(unmatched_a) > 0 else 'None'}")
+    logger.debug(f"  Unmatched detections: {unmatched_b.tolist() if len(unmatched_b) > 0 else 'None'}")
+    logger.debug(f"=== END LINEAR ASSIGNMENT ===")
+
     return matches, unmatched_a, unmatched_b
 
 def greedy_assignment_cascade(dists, thresh):

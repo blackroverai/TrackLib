@@ -3,19 +3,21 @@ import numpy as np
 
 class ByteKalman(BaseKalman):
 
-    def __init__(self, ):
+    def __init__(self, dt=1.0/30):
 
         state_dim = 8  # [x, y, a, h, vx, vy, va, vh]
-        observation_dim = 4 
+        observation_dim = 4
 
         F = np.eye(state_dim, state_dim)
         '''
-        [1, 0, 0, 0, 1, 0, 0]
-        [0, 1, 0, 0, 0, 1, 0]
+        [1, 0, 0, 0, dt, 0,  0,  0]
+        [0, 1, 0, 0, 0,  dt, 0,  0]
+        [0, 0, 1, 0, 0,  0,  dt, 0]
+        [0, 0, 0, 1, 0,  0,  0,  dt]
         ...
         '''
         for i in range(state_dim // 2):
-            F[i, i + state_dim // 2] = 1
+            F[i, i + state_dim // 2] = dt
 
         H = np.eye(state_dim // 2, state_dim)
     
