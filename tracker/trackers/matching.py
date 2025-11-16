@@ -64,16 +64,32 @@ def iou_distance(atracks, btracks):
 
     Returns:
         cost: 1.0 - IoU, np.ndarray, shape (m, n)
+              Infinite cost for mismatched categories
     """
 
     if (len(atracks) > 0 and isinstance(atracks[0], np.ndarray)) or (len(btracks) > 0 and isinstance(btracks[0], np.ndarray)):
         atlbrs = atracks
         btlbrs = btracks
+        category_filter = None  # Can't filter with raw arrays
     else:
         atlbrs = [track.tlbr for track in atracks]
         btlbrs = [track.tlbr for track in btracks]
+
+        # Create category filter mask to prevent cross-category matching
+        if len(atracks) > 0 and len(btracks) > 0:
+            track_cats = np.array([track.category for track in atracks])
+            det_cats = np.array([track.category for track in btracks])
+            # Broadcasting: shape (m,1) vs (1,n) -> (m,n)
+            category_filter = track_cats[:, np.newaxis] != det_cats[np.newaxis, :]
+        else:
+            category_filter = None
+
     _ious = ious(atlbrs, btlbrs)
     cost_matrix = 1 - _ious
+
+    # Set infinite cost where categories don't match
+    if category_filter is not None:
+        cost_matrix[category_filter] = np.inf
 
     return cost_matrix
 
@@ -82,13 +98,14 @@ def embedding_distance(tracks, detections, metric='cosine'):
     """
     Calculate the feature embedding distance
 
-    Args: 
+    Args:
         tracks: List[Tracklet], length of m
         detections: List[Tracklet], length of m
         metric: str, cosine or eculid
-    
+
     Returns:
         cost: 1.0 - cosine, ..., np.ndarray, shape (m, n)
+              Infinite cost for mismatched categories
     """
 
     cost_matrix = np.zeros((len(tracks), len(detections)), dtype=np.float32)
@@ -99,6 +116,14 @@ def embedding_distance(tracks, detections, metric='cosine'):
         #cost_matrix[i, :] = np.maximum(0.0, cdist(track.smooth_feat.reshape(1,-1), det_features, metric))
     track_features = np.asarray([track.smooth_feat for track in tracks], dtype=np.float32)
     cost_matrix = np.maximum(0.0, cdist(track_features, det_features, metric))  # Nomalized features
+
+    # Add category filtering to prevent cross-category matching
+    if len(tracks) > 0 and len(detections) > 0:
+        track_cats = np.array([track.category for track in tracks])
+        det_cats = np.array([det.category for det in detections])
+        category_filter = track_cats[:, np.newaxis] != det_cats[np.newaxis, :]
+        cost_matrix[category_filter] = np.inf
+
     return cost_matrix
 
 
@@ -322,29 +347,23 @@ def linear_assignment(cost_matrix, thresh):
     if cost_matrix.size == 0:
         return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
 
-    # Log cost matrix for debugging
-    logger.debug(f"=== LINEAR ASSIGNMENT ===")
-    logger.debug(f"Cost matrix shape: {cost_matrix.shape} (tracks x detections)")
-    logger.debug(f"Threshold: {thresh}")
-    logger.debug(f"Cost matrix:")
-    for i in range(cost_matrix.shape[0]):
-        row_str = " ".join([f"{cost_matrix[i,j]:6.3f}" for j in range(cost_matrix.shape[1])])
-        logger.debug(f"  Track {i:2d}: [{row_str}]")
-
     matches, unmatched_a, unmatched_b = [], [], []
     cost, x, y = lap.lapjv(cost_matrix, extend_cost=True, cost_limit=thresh)
+
+    logger.debug(f"=== LINEAR ASSIGNMENT RESULTS ===")
+    logger.debug(f"lapjv x array (track->detection mapping): {x}")
+    logger.debug(f"lapjv y array (detection->track mapping): {y}")
+
     for ix, mx in enumerate(x):
         if mx >= 0:
             matches.append([ix, mx])
+            logger.debug(f"  Match: track_idx={ix} -> det_idx={mx}")
     unmatched_a = np.where(x < 0)[0]
     unmatched_b = np.where(y < 0)[0]
     matches = np.asarray(matches)
 
-    # Log results
-    logger.debug(f"Assignment results:")
-    logger.debug(f"  Matches: {matches.tolist() if len(matches) > 0 else 'None'}")
-    logger.debug(f"  Unmatched tracks: {unmatched_a.tolist() if len(unmatched_a) > 0 else 'None'}")
-    logger.debug(f"  Unmatched detections: {unmatched_b.tolist() if len(unmatched_b) > 0 else 'None'}")
+    logger.debug(f"  Unmatched tracks (indices): {unmatched_a.tolist()}")
+    logger.debug(f"  Unmatched detections (indices): {unmatched_b.tolist()}")
     logger.debug(f"=== END LINEAR ASSIGNMENT ===")
 
     return matches, unmatched_a, unmatched_b

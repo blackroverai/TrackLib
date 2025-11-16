@@ -7,6 +7,7 @@ from collections import deque
 from .basetrack import BaseTrack, TrackState
 from .tracklet import Tracklet, Tracklet_w_reid
 from .matching import *
+import logging
 
 # for reid
 import torch
@@ -15,6 +16,8 @@ from .reid_models.engine import load_reid_model, crop_and_resize
 
 # base class
 from .basetracker import BaseTracker
+
+logger = logging.getLogger(__name__)
 
 class ByteTracker(BaseTracker):
     def __init__(self, args, frame_rate=30):
@@ -123,6 +126,7 @@ class ByteTracker(BaseTracker):
                           (tlwh, s, cate) in zip(dets_second, scores_second, cates_second)]
         else:
             detections_second = []
+            
         r_tracked_tracklets = [tracklet_pool[i] for i in u_track if tracklet_pool[i].state == TrackState.Tracked]
         dists = iou_distance(r_tracked_tracklets, detections_second)
         matches, u_track, u_detection_second = linear_assignment(dists, thresh=0.5)
@@ -180,5 +184,21 @@ class ByteTracker(BaseTracker):
         self.merge_tracklets(activated_tracklets, refind_tracklets, lost_tracklets, removed_tracklets)
 
         output_tracklets = [track for track in self.tracked_tracklets if track.is_activated]
+
+        # DEBUG: Print all output tracklets before returning
+        logger.debug(f"=== BYTE TRACKER OUTPUT ===")
+        logger.debug(f"Total output tracklets: {len(output_tracklets)}")
+        for track in output_tracklets:
+            logger.debug(f"  Track {track.track_id}: state={track.state}, is_activated={track.is_activated}, "
+                        f"time_since_update={track.time_since_update}, bbox={track.tlbr}, score={track.score:.3f}")
+        logger.debug(f"=== END BYTE TRACKER OUTPUT ===")
+
+        # DEBUG: Print all lost tracklets
+        logger.debug(f"=== LOST TRACKLETS ===")
+        logger.debug(f"Total lost tracklets: {len(self.lost_tracklets)}")
+        for track in self.lost_tracklets:
+            logger.debug(f"  Track {track.track_id}: state={track.state}, is_activated={track.is_activated}, "
+                        f"time_since_update={track.time_since_update}, end_frame={track.end_frame}, bbox={track.tlbr}")
+        logger.debug(f"=== END LOST TRACKLETS ===")
 
         return output_tracklets
