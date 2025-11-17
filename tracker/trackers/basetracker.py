@@ -47,6 +47,44 @@ class BaseTracker(object):
         return features
     
     
+    def remove_track(self, track_id):
+        """
+        Manually remove a track from tracking by moving it to removed_tracklets.
+
+        This searches tracked_tracklets and lost_tracklets for the given track_id,
+        removes it from those lists, marks it as removed, and adds it to removed_tracklets.
+
+        Args:
+            track_id: The track ID to remove
+
+        Returns:
+            bool: True if track was found and removed, False otherwise
+        """
+        track_to_remove = None
+
+        # Search in tracked_tracklets
+        for track in self.tracked_tracklets:
+            if track.track_id == track_id:
+                track_to_remove = track
+                self.tracked_tracklets.remove(track)
+                break
+
+        # If not found in tracked, search in lost_tracklets
+        if track_to_remove is None:
+            for track in self.lost_tracklets:
+                if track.track_id == track_id:
+                    track_to_remove = track
+                    self.lost_tracklets.remove(track)
+                    break
+
+        # If found, mark as removed and add to removed_tracklets
+        if track_to_remove is not None:
+            track_to_remove.mark_removed()
+            self.removed_tracklets.append(track_to_remove)
+            return True
+
+        return False
+
     def merge_tracklets(self, activated_tracklets, refind_tracklets, lost_tracklets, removed_tracklets):
         """
         update tracklets with current association results
