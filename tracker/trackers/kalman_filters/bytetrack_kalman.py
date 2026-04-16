@@ -3,7 +3,7 @@ import numpy as np
 
 class ByteKalman(BaseKalman):
 
-    def __init__(self, dt=1.0/30):
+    def __init__(self, dt=1.0/30, std_weight_position=None, std_weight_velocity=None):
 
         state_dim = 8  # [x, y, a, h, vx, vy, va, vh]
         observation_dim = 4
@@ -20,14 +20,14 @@ class ByteKalman(BaseKalman):
             F[i, i + state_dim // 2] = dt
 
         H = np.eye(state_dim // 2, state_dim)
-    
-        super().__init__(state_dim=state_dim, 
-                       observation_dim=observation_dim, 
-                       F=F, 
+
+        super().__init__(state_dim=state_dim,
+                       observation_dim=observation_dim,
+                       F=F,
                        H=H)
-        
-        self._std_weight_position = 1. / 20
-        self._std_weight_velocity = 1. / 160
+
+        self._std_weight_position = std_weight_position if std_weight_position is not None else 1. / 20
+        self._std_weight_velocity = std_weight_velocity if std_weight_velocity is not None else 1. / 160
         
     def initialize(self, observation):
         """ init x, P, Q, R

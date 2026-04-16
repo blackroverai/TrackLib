@@ -26,6 +26,13 @@ class BaseTracker(object):
 
         self.motion = args.kalman_format
 
+        # Kalman filter process noise kwargs (forwarded to Kalman constructors)
+        self.kalman_kwargs = {}
+        if hasattr(args, 'kalman_std_weight_position') and args.kalman_std_weight_position is not None:
+            self.kalman_kwargs['std_weight_position'] = args.kalman_std_weight_position
+        if hasattr(args, 'kalman_std_weight_velocity') and args.kalman_std_weight_velocity is not None:
+            self.kalman_kwargs['std_weight_velocity'] = args.kalman_std_weight_velocity
+
     def update(self, output_results, img, ori_img):
         raise NotImplementedError
 

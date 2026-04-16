@@ -38,7 +38,7 @@ STATE_CONVERT_DICT = {
 }
 
 class Tracklet(BaseTrack):
-    def __init__(self, tlwh, score, category, motion='byte', dt=1.0/30, det_idx=None):
+    def __init__(self, tlwh, score, category, motion='byte', dt=1.0/30, det_idx=None, kalman_kwargs=None):
 
         # initial position
         self._tlwh = np.asarray(tlwh, dtype=np.float32)
@@ -50,9 +50,9 @@ class Tracklet(BaseTrack):
 
         # kalman
         self.motion = motion
-        # Pass dt to ByteKalman filter for proper time scaling
+        _kw = kalman_kwargs or {}
         if motion == 'byte':
-            self.kalman_filter = MOTION_MODEL_DICT[motion](dt=dt)
+            self.kalman_filter = MOTION_MODEL_DICT[motion](dt=dt, **_kw)
         else:
             self.kalman_filter = MOTION_MODEL_DICT[motion]()
 
@@ -151,8 +151,8 @@ class Tracklet_w_reid(Tracklet):
     """
 
     def __init__(self, tlwh, score, category, motion='byte',
-                 feat=None, feat_history=50, dt=1.0/30, det_idx=None):
-        super().__init__(tlwh, score, category, motion, dt=dt, det_idx=det_idx)
+                 feat=None, feat_history=50, dt=1.0/30, det_idx=None, kalman_kwargs=None):
+        super().__init__(tlwh, score, category, motion, dt=dt, det_idx=det_idx, kalman_kwargs=kalman_kwargs)
 
         self.smooth_feat = None  # EMA feature
         self.curr_feat = None  # current feature
