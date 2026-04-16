@@ -4,10 +4,13 @@ like init, get_features and tracklet merge
 for code clearity
 """
 
-import numpy as np 
-import torch 
+import logging
+import numpy as np
+import torch
 from .reid_models.engine import crop_and_resize
 from .matching import iou_distance
+
+logger = logging.getLogger(__name__)
 
 class BaseTracker(object):
     def __init__(self, args, frame_rate=30):
@@ -32,6 +35,8 @@ class BaseTracker(object):
             self.kalman_kwargs['std_weight_position'] = args.kalman_std_weight_position
         if hasattr(args, 'kalman_std_weight_velocity') and args.kalman_std_weight_velocity is not None:
             self.kalman_kwargs['std_weight_velocity'] = args.kalman_std_weight_velocity
+        if self.kalman_kwargs:
+            logger.info(f"Kalman process noise overrides: {self.kalman_kwargs}")
 
     def update(self, output_results, img, ori_img):
         raise NotImplementedError
