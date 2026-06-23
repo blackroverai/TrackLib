@@ -158,7 +158,7 @@ class SparseTracker(BaseTracker):
         scores_second = scores[inds_second]
 
         if len(dets) > 0:
-            detections = [Tracklet_w_depth(tlwh, s, cate, motion=self.motion) for
+            detections = [Tracklet_w_depth(tlwh, s, cate, motion=self.motion, group_map=self.group_map) for
                             (tlwh, s, cate) in zip(dets, scores_keep, cates)]
         else:
             detections = []
@@ -197,7 +197,7 @@ class SparseTracker(BaseTracker):
         ''' Step 3: Second association, with low score detection boxes, depth cascade mathcing'''
         if len(dets_second) > 0:
             '''Detections'''
-            detections_second = [Tracklet_w_depth(tlwh, s, cate, motion=self.motion) for
+            detections_second = [Tracklet_w_depth(tlwh, s, cate, motion=self.motion, group_map=self.group_map) for
                           (tlwh, s, cate) in zip(dets_second, scores_second, cates_second)]
         else:
             detections_second = []

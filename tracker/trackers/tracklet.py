@@ -28,17 +28,61 @@ MOTION_MODEL_DICT = {
 }
 
 STATE_CONVERT_DICT = {
-    'sort': 'xysa', 
-    'byte': 'xyah', 
-    'bot': 'xywh', 
-    'ocsort': 'xysa', 
+    'sort': 'xysa',
+    'byte': 'xyah',
+    'bot': 'xywh',
+    'ocsort': 'xysa',
     'strongsort': 'xyah',
-    'ucmc': 'ground', 
+    'ucmc': 'ground',
     'hybridsort': 'xysca'
 }
 
+# --- Category grouping (BlackRover fork) -----------------------------------
+# Coarse-group association gate. Detections whose class label flaps within one
+# group (e.g. car<->truck<->bus all "vehicle") still associate, while
+# cross-group (person vs vehicle) cannot. matching.py gates on `category_group`,
+# not the raw `category`.
+#
+# The grouping is **name-keyed config**, NOT a global. detection_config supplies
+# {role -> {canonical_name -> group_str}} (e.g. "vehicle"/"person"/"two_wheeler"),
+# seeded onto the tracker at init (BaseTracker.group_by_role_name). At runtime,
+# for the active detector role, the tracker composes a {class-id -> group_str}
+# submap from that role's name map and the detector's post-merge `names` dict
+# (compose_group_map), and passes it into each Tracklet at construction. An
+# unmapped class falls through to its own class name; an empty map falls through
+# to the raw `category` (byte-identical to upstream) -- the safe default. The map
+# is role-keyed because one process can reuse the tracker across ground then
+# aerial footage, whose post-merge class-id spaces differ.
+
+
+def compose_group_map(name_to_group, names):
+    """Compose a {class-id -> group} submap for the active role.
+
+    `name_to_group` is {canonical_name -> group_str} (config); `names` is the
+    detector's runtime {class-id -> canonical_name}. Every detected id maps to a
+    string: its group when mapped, else its own class name (so an unmapped class
+    gates as itself). Empty inputs => {} (identity grouping).
+    """
+    if not name_to_group or not names:
+        return {}
+    return {int(cid): name_to_group.get(nm, nm) for cid, nm in names.items()}
+
+
+def _resolve_group(category, group_map):
+    """Group id for a raw category under `group_map` (a {class-id -> group-id}
+    submap); falls through to the raw category when the map is empty or the
+    class is unmapped."""
+    if not group_map:
+        return category
+    try:
+        c = int(category)
+    except (TypeError, ValueError):
+        return category
+    return group_map.get(c, c)
+
+
 class Tracklet(BaseTrack):
-    def __init__(self, tlwh, score, category, motion='byte', dt=1.0/30, det_idx=None, kalman_kwargs=None):
+    def __init__(self, tlwh, score, category, motion='byte', dt=1.0/30, det_idx=None, kalman_kwargs=None, group_map=None):
 
         # initial position
         self._tlwh = np.asarray(tlwh, dtype=np.float32)
@@ -46,6 +90,7 @@ class Tracklet(BaseTrack):
 
         self.score = score
         self.category = category
+        self.category_group = _resolve_group(category, group_map)  # coarse group for the assoc gate
         self.det_idx = det_idx  # Original detection index for metadata lookup
 
         # kalman
@@ -151,8 +196,8 @@ class Tracklet_w_reid(Tracklet):
     """
 
     def __init__(self, tlwh, score, category, motion='byte',
-                 feat=None, feat_history=50, dt=1.0/30, det_idx=None, kalman_kwargs=None):
-        super().__init__(tlwh, score, category, motion, dt=dt, det_idx=det_idx, kalman_kwargs=kalman_kwargs)
+                 feat=None, feat_history=50, dt=1.0/30, det_idx=None, kalman_kwargs=None, group_map=None):
+        super().__init__(tlwh, score, category, motion, dt=dt, det_idx=det_idx, kalman_kwargs=kalman_kwargs, group_map=group_map)
 
         self.smooth_feat = None  # EMA feature
         self.curr_feat = None  # current feature
@@ -220,9 +265,9 @@ class Tracklet_w_velocity(Tracklet):
     Tracklet class with center point velocity, for ocsort or deep ocsort
     """
     
-    def __init__(self, tlwh, score, category, motion='byte', delta_t=3, 
-                 feat=None, feat_history=50, det_conf_thresh=0.1):
-        super().__init__(tlwh, score, category, motion)
+    def __init__(self, tlwh, score, category, motion='byte', delta_t=3,
+                 feat=None, feat_history=50, det_conf_thresh=0.1, group_map=None):
+        super().__init__(tlwh, score, category, motion, group_map=group_map)
 
         self.last_observation = np.array([-1, -1, -1, -1, -1])  # placeholder
         self.observations = dict()
@@ -324,14 +369,15 @@ class Tracklet_w_velocity_four_corner(Tracklet):
     """
     Tracklet class with four corner points velocity and previous confidence, for hybrid sort and tracktrack
     """
-    def __init__(self, tlwh, score, category, motion='byte', delta_t=3, score_thresh=0.4, 
-                 feat=None, feat_history=50, enable_state_new=False):
+    def __init__(self, tlwh, score, category, motion='byte', delta_t=3, score_thresh=0.4,
+                 feat=None, feat_history=50, enable_state_new=False, group_map=None):
         # initial position
         self._tlwh = np.asarray(tlwh, dtype=np.float32)
         self.is_activated = False
 
         self.score = score
         self.category = category
+        self.category_group = _resolve_group(category, group_map)  # coarse group for the assoc gate
 
         # kalman
         self.motion = motion
@@ -543,13 +589,14 @@ class Tracklet_w_bbox_buffer(Tracklet):
     """
     Tracklet class with buffer of bbox, for C_BIoU track.
     """
-    def __init__(self, tlwh, score, category, motion='byte'):
+    def __init__(self, tlwh, score, category, motion='byte', group_map=None):
         # initial position
         self._tlwh = np.asarray(tlwh, dtype=np.float32)
         self.is_activated = False
 
         self.score = score
         self.category = category
+        self.category_group = _resolve_group(category, group_map)  # coarse group for the assoc gate
 
         # Note in C-BIoU tracker the kalman filter is abandoned
 
@@ -653,8 +700,8 @@ class Tracklet_w_depth(Tracklet):
     tracklet with depth info (i.e., 2000 - y2), for SparseTrack
     """
 
-    def __init__(self, tlwh, score, category, motion='byte'):
-        super().__init__(tlwh, score, category, motion)
+    def __init__(self, tlwh, score, category, motion='byte', group_map=None):
+        super().__init__(tlwh, score, category, motion, group_map=group_map)
 
 
     @property
@@ -686,7 +733,7 @@ class Tracklet_w_UCMC(Tracklet):
     A = None  # The A matrix in Eq. 17
     InvA = None 
 
-    def __init__(self, tlwh, score, category, motion='ucmc'):
+    def __init__(self, tlwh, score, category, motion='ucmc', group_map=None):
 
         # initial position
         self._tlwh = np.asarray(tlwh, dtype=np.float32)
@@ -694,6 +741,7 @@ class Tracklet_w_UCMC(Tracklet):
 
         self.score = score
         self.category = category
+        self.category_group = _resolve_group(category, group_map)  # coarse group for the assoc gate
 
         # kalman
         self.motion = motion

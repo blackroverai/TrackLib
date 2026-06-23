@@ -63,7 +63,7 @@ class HybridSortTracker(BaseTracker):
 
         if len(dets) > 0:
             '''Detections'''
-            detections = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion) for
+            detections = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, group_map=self.group_map) for
                           (tlwh, s, cate) in zip(dets, scores_keep, cates)]
         else:
             detections = []
@@ -114,7 +114,7 @@ class HybridSortTracker(BaseTracker):
         # association the untrack to the low score detections
         if len(dets_second) > 0:
             '''Detections'''
-            detections_second = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion) for
+            detections_second = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, group_map=self.group_map) for
                           (tlwh, s, cate) in zip(dets_second, scores_second, cates_second)]
         else:
             detections_second = []

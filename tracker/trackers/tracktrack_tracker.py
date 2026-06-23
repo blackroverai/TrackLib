@@ -176,30 +176,30 @@ class TrackTrackTracker(BaseTracker):
         # initalize all detections
         if len(dets) > 0:
             if self.with_reid:
-                detections = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, feat=feat, enable_state_new=True) for
+                detections = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, feat=feat, enable_state_new=True, group_map=self.group_map) for
                             (tlwh, s, cate, feat) in zip(dets, scores_keep, cates, features_keep)]
             else:
-                detections = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, enable_state_new=True) for
+                detections = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, enable_state_new=True, group_map=self.group_map) for
                             (tlwh, s, cate) in zip(dets, scores_keep, cates)]
         else:
             detections = []
 
         if len(dets_second) > 0:
             if self.with_reid:
-                detections_second = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, feat=feat, enable_state_new=True) for
+                detections_second = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, feat=feat, enable_state_new=True, group_map=self.group_map) for
                             (tlwh, s, cate, feat) in zip(dets_second, scores_second, cates_second, features_second)]
             else:
-                detections_second = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, enable_state_new=True) for
+                detections_second = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, enable_state_new=True, group_map=self.group_map) for
                           (tlwh, s, cate) in zip(dets_second, scores_second, cates_second)]
         else:
             detections_second = []
 
         if len(dets_delete) > 0:
             if self.with_reid:
-                detections_delete = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, feat=feat, enable_state_new=True) for
+                detections_delete = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, feat=feat, enable_state_new=True, group_map=self.group_map) for
                             (tlwh, s, cate, feat) in zip(dets_delete, scores_delete, cates_delete, features_delete)]
             else:
-                detections_delete = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, enable_state_new=True) for
+                detections_delete = [Tracklet_w_velocity_four_corner(tlwh, s, cate, motion=self.motion, enable_state_new=True, group_map=self.group_map) for
                           (tlwh, s, cate) in zip(dets_delete, scores_delete, cates_delete)]
         else:
             detections_delete = []

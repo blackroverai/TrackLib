@@ -74,10 +74,10 @@ class BotTracker(BaseTracker):
 
         if len(dets) > 0:
             if self.with_reid:
-                detections = [Tracklet_w_reid(tlwh, s, cate, motion=self.motion, feat=feat) for
+                detections = [Tracklet_w_reid(tlwh, s, cate, motion=self.motion, feat=feat, group_map=self.group_map) for
                             (tlwh, s, cate, feat) in zip(dets, scores_keep, cates, features_keep)]
             else:
-                detections = [Tracklet(tlwh, s, cate, motion=self.motion) for
+                detections = [Tracklet(tlwh, s, cate, motion=self.motion, group_map=self.group_map) for
                             (tlwh, s, cate) in zip(dets, scores_keep, cates)]
         else:
             detections = []
@@ -136,7 +136,7 @@ class BotTracker(BaseTracker):
         # association the untrack to the low score detections
         if len(dets_second) > 0:
             '''Detections'''
-            detections_second = [Tracklet(tlwh, s, cate, motion=self.motion) for
+            detections_second = [Tracklet(tlwh, s, cate, motion=self.motion, group_map=self.group_map) for
                           (tlwh, s, cate) in zip(dets_second, scores_second, cates_second)]
         else:
             detections_second = []
