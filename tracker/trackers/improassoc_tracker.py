@@ -82,10 +82,10 @@ class ImproAssocTracker(BaseTracker):
 
         if len(dets) > 0:
             if self.with_reid:
-                detections = [Tracklet_w_reid(tlwh, s, cate, motion=self.motion, feat=feat) for
+                detections = [Tracklet_w_reid(tlwh, s, cate, motion=self.motion, feat=feat, group_map=self.group_map) for
                             (tlwh, s, cate, feat) in zip(dets, scores_keep, cates, features_keep)]
             else:
-                detections = [Tracklet(tlwh, s, cate, motion=self.motion) for
+                detections = [Tracklet(tlwh, s, cate, motion=self.motion, group_map=self.group_map) for
                             (tlwh, s, cate) in zip(dets, scores_keep, cates)]
         else:
             detections = []
@@ -122,10 +122,10 @@ class ImproAssocTracker(BaseTracker):
         # init low conf detections
         if len(dets_second) > 0:
             if self.with_reid:
-                detections_second = [Tracklet_w_reid(tlwh, s, cate, motion=self.motion, feat=feat) for
+                detections_second = [Tracklet_w_reid(tlwh, s, cate, motion=self.motion, feat=feat, group_map=self.group_map) for
                             (tlwh, s, cate, feat) in zip(dets_second, scores_second, cates_second, features_second)]
             else:
-                detections_second = [Tracklet(tlwh, s, cate, motion=self.motion) for
+                detections_second = [Tracklet(tlwh, s, cate, motion=self.motion, group_map=self.group_map) for
                             (tlwh, s, cate) in zip(dets_second, scores_second, cates_second)]
         else:
             detections_second = []

@@ -67,7 +67,7 @@ class StrongSortTracker(BaseTracker):
 
         if len(dets) > 0:
             '''Detections'''
-            detections = [Tracklet_w_reid(tlwh, s, cate, motion=self.motion, feat=feat) for
+            detections = [Tracklet_w_reid(tlwh, s, cate, motion=self.motion, feat=feat, group_map=self.group_map) for
                           (tlwh, s, cate, feat) in zip(dets, scores_keep, cates, features_keep)]
         else:
             detections = []

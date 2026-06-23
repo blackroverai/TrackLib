@@ -75,10 +75,14 @@ def iou_distance(atracks, btracks):
         atlbrs = [track.tlbr for track in atracks]
         btlbrs = [track.tlbr for track in btracks]
 
-        # Create category filter mask to prevent cross-category matching
+        # Create category-group filter mask to prevent cross-group matching.
+        # Gating on category_group (not the raw category) lets a vehicle whose
+        # YOLO label flaps car<->truck<->bus still associate, while keeping
+        # person vs vehicle apart. Falls through to raw category when no group
+        # map is installed (category_group == category).
         if len(atracks) > 0 and len(btracks) > 0:
-            track_cats = np.array([track.category for track in atracks])
-            det_cats = np.array([track.category for track in btracks])
+            track_cats = np.array([track.category_group for track in atracks])
+            det_cats = np.array([track.category_group for track in btracks])
             # Broadcasting: shape (m,1) vs (1,n) -> (m,n)
             category_filter = track_cats[:, np.newaxis] != det_cats[np.newaxis, :]
         else:
@@ -117,10 +121,12 @@ def embedding_distance(tracks, detections, metric='cosine'):
     track_features = np.asarray([track.smooth_feat for track in tracks], dtype=np.float32)
     cost_matrix = np.maximum(0.0, cdist(track_features, det_features, metric))  # Nomalized features
 
-    # Add category filtering to prevent cross-category matching
+    # Add category-group filtering to prevent cross-group matching (see
+    # iou_distance) — gates on category_group, falling through to raw category
+    # when no group map is installed.
     if len(tracks) > 0 and len(detections) > 0:
-        track_cats = np.array([track.category for track in tracks])
-        det_cats = np.array([det.category for det in detections])
+        track_cats = np.array([track.category_group for track in tracks])
+        det_cats = np.array([det.category_group for det in detections])
         category_filter = track_cats[:, np.newaxis] != det_cats[np.newaxis, :]
         cost_matrix[category_filter] = np.inf
 

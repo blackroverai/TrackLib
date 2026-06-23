@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from .reid_models.engine import crop_and_resize
 from .matching import iou_distance
+from .tracklet import compose_group_map
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,20 @@ class BaseTracker(object):
         self.frame_id = 0
         self.args = args
         self.frame_rate = frame_rate  # Store frame rate for dt calculation
+
+        # Category grouping (BlackRover fork): name-keyed coarse-group config,
+        # carried per-instance (NOT global -- one process may reuse this tracker
+        # across ground then aerial footage, whose post-merge class-id spaces
+        # differ). `group_by_role_name` is {role -> {canonical_name -> group_str}}
+        # (pure config, seeded at init); `group_map` is the active role's
+        # {class_id -> group_str} submap, composed from the detector's runtime
+        # `names` and passed into each Tracklet so matching.py gates on
+        # category_group. Empty => identity grouping (byte-identical to upstream).
+        # See set_active_role().
+        self.group_by_role_name = dict(getattr(args, 'group_names_by_role', None) or {})
+        self._active_role = getattr(args, 'detection_role', None)
+        self._composed_by_role = {}  # role -> {class_id -> group_str}, composed lazily
+        self.group_map = {}          # active role's composed submap (empty until names known)
 
         self.init_thresh = args.init_thresh
         self.buffer_size = int(frame_rate / 30.0 * args.track_buffer)
@@ -37,6 +52,26 @@ class BaseTracker(object):
             self.kalman_kwargs['std_weight_velocity'] = args.kalman_std_weight_velocity
         if self.kalman_kwargs:
             logger.info(f"Kalman process noise overrides: {self.kalman_kwargs}")
+
+    def set_active_role(self, role, names=None):
+        """Switch the active detector role and compose its class->group submap.
+
+        Call this as the detector is resolved for incoming footage, before
+        update(). The first time a role is seen, `names` (the detector's runtime
+        {class_id -> canonical_name}) is composed against that role's config name
+        map and cached; later frames just switch the active role. Subsequent
+        Tracklets built in update() carry the active role's submap, so a process
+        reusing this tracker across roles never cross-contaminates.
+        """
+        self._active_role = role
+        if role in self._composed_by_role:
+            self.group_map = self._composed_by_role[role]
+        elif names:
+            composed = compose_group_map(self.group_by_role_name.get(role) or {}, names)
+            self._composed_by_role[role] = composed
+            self.group_map = composed
+        else:
+            self.group_map = {}
 
     def update(self, output_results, img, ori_img):
         raise NotImplementedError

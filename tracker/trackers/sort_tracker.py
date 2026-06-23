@@ -44,7 +44,7 @@ class SortTracker(BaseTracker):
 
         if len(dets) > 0:
             '''Detections'''
-            detections = [Tracklet(tlwh, s, cate, motion=self.motion) for
+            detections = [Tracklet(tlwh, s, cate, motion=self.motion, group_map=self.group_map) for
                           (tlwh, s, cate) in zip(dets, scores_keep, cates)]
         else:
             detections = []
